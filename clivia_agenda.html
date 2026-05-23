@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CLIVIA — Agenda</title>
+<style>
+/* ── RESET & VARIABLES ─────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --black:#000;--white:#fff;
+  --gold:#D4AF37;--gold-dim:rgba(212,175,55,.14);--gold-glow:rgba(212,175,55,.35);
+  --blue:#1E3A8A;--blue-mid:rgba(30,58,138,.5);
+  --beige:#F5F5DC;
+  --s1:#0D0D0D;--s2:#111;--s3:#1A1A1A;--s4:#222;
+  --border:rgba(212,175,55,.18);--border2:rgba(255,255,255,.06);
+  --muted:rgba(255,255,255,.42);--dim:rgba(255,255,255,.68);
+  --r:14px;--r-sm:9px;
+  --serif:'Georgia',serif;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+html,body{height:100%;background:var(--black);color:var(--white);font-family:var(--sans);font-size:14px;overflow:hidden}
+
+/* ── APP SHELL ─────────────────────────────────────────── */
+#app{
+  width:100%;max-width:430px;height:100dvh;
+  margin:0 auto;display:flex;flex-direction:column;
+  background:var(--black);position:relative;overflow:hidden;
+}
+
+/* ── STATUS BAR ────────────────────────────────────────── */
+.sb{height:44px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;flex-shrink:0;}
+.sb-time{font-size:13px;font-weight:600}
+.sb-icons{display:flex;gap:5px;align-items:center;font-size:12px}
+
+/* ── SCREEN ────────────────────────────────────────────── */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden}
+.screen.active{display:flex}
+
+/* ── HEADER ────────────────────────────────────────────── */
+.hdr{padding:14px 18px 10px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0}
+.hdr-title{font-family:var(--serif);font-size:26px;font-weight:700;letter-spacing:.3px}
+.hdr-title em{color:var(--gold);font-style:normal}
+.hdr-right{display:flex;gap:8px}
+.ic-btn{width:36px;height:36px;border-radius:50%;background:var(--s3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:.15s;flex-shrink:0}
+.ic-btn:active{background:var(--gold-dim)}
+.ic-btn svg{width:17px;height:17px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── MONTH STRIP ───────────────────────────────────────── */
+.month-strip{
+  display:flex;gap:6px;padding:0 16px 14px;
+  overflow-x:auto;flex-shrink:0;scrollbar-width:none;
+}
+.month-strip::-webkit-scrollbar{display:none}
+.mc{padding:6px 15px;border-radius:20px;font-size:12px;font-weight:500;
+  background:var(--s3);border:1px solid var(--border2);color:var(--muted);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;transition:.18s;
+  user-select:none}
+.mc:active{opacity:.7}
+.mc.on{background:var(--gold);color:var(--black);border-color:var(--gold);font-weight:700}
+
+/* ── CALENDAR GRID ─────────────────────────────────────── */
+.cal-wrap{margin:0 16px;background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;flex-shrink:0}
+.wd-row{display:grid;grid-template-columns:repeat(7,1fr);padding:10px 6px 4px}
+.wd{text-align:center;font-size:10px;letter-spacing:.8px;color:var(--muted);
+  font-weight:600;padding:3px 0}
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:4px 6px 10px;gap:1px}
+.day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:13px;border-radius:50%;cursor:pointer;position:relative;
+  transition:.12s;color:var(--dim);user-select:none}
+.day:active{opacity:.6}
+.day.other{color:rgba(255,255,255,.15)}
+.day.today{background:var(--gold);color:var(--black);font-weight:700}
+.day.sel{background:var(--blue);color:var(--white);font-weight:600}
+.day.today.sel{background:var(--gold)}
+.day.has-ev::after{content:'';position:absolute;bottom:4px;left:50%;
+  transform:translateX(-50%);width:4px;height:4px;border-radius:50%;
+  background:var(--gold)}
+.day.today.has-ev::after,.day.sel.has-ev::after{background:rgba(255,255,255,.7)}
+
+/* ── CONTENT AREA ──────────────────────────────────────── */
+.cal-body{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px}
+.cal-body::-webkit-scrollbar{display:none}
+
+/* ── SELECTED DATE BAR ─────────────────────────────────── */
+.sel-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 10px;flex-shrink:0;
+}
+.sel-label{font-size:13px;font-weight:600;color:var(--gold)}
+.add-ev-btn{
+  display:flex;align-items:center;gap:5px;
+  background:var(--gold-dim);border:1px solid var(--gold);
+  border-radius:20px;padding:5px 13px;cursor:pointer;
+  font-size:11px;font-weight:600;color:var(--gold);
+  transition:.15s;user-select:none;
+}
+.add-ev-btn:active{background:var(--gold);color:var(--black)}
+.add-ev-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* ── AGENDA ITEMS ──────────────────────────────────────── */
+.agenda-list{padding:0 16px}
+.agenda-item{
+  display:flex;align-items:stretch;gap:0;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r-sm);margin-bottom:8px;
+  overflow:hidden;cursor:pointer;transition:.15s;
+}
+.agenda-item:active{border-color:var(--gold);background:var(--s3)}
+.ag-accent{width:3px;flex-shrink:0}
+.ag-time{
+  padding:13px 12px;display:flex;flex-direction:column;
+  gap:2px;border-right:1px solid var(--border2);min-width:62px;
+  align-items:flex-end;flex-shrink:0;
+}
+.ag-time-start{font-size:11px;color:var(--white);font-weight:500}
+.ag-time-end{font-size:10px;color:var(--muted)}
+.ag-content{padding:13px 12px;flex:1;min-width:0}
+.ag-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.ag-arrow{padding:0 12px;display:flex;align-items:center;color:var(--muted);font-size:16px}
+
+.ag-badge{
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;
+  display:inline-block;margin-top:5px;letter-spacing:.4px;
+}
+
+/* ── EMPTY STATE ───────────────────────────────────────── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;
+  padding:40px 20px;gap:12px;text-align:center;
+}
+.empty svg{width:44px;height:44px;stroke:var(--muted);fill:none;stroke-width:1;opacity:.4}
+.empty p{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ── MODAL OVERLAY ─────────────────────────────────────── */
+.overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,.88);
+  backdrop-filter:blur(16px);z-index:100;
+  display:flex;align-items:flex-end;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{
+  width:100%;background:var(--s1);
+  border-radius:22px 22px 0 0;border:1px solid var(--border);border-bottom:none;
+  padding:10px 20px 40px;max-height:88vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .32s cubic-bezier(.32,1.1,.6,1);
+  scrollbar-width:none;
+}
+.sheet::-webkit-scrollbar{display:none}
+.overlay.open .sheet{transform:translateY(0)}
+.handle{width:34px;height:4px;border-radius:4px;background:var(--s4);margin:0 auto 18px}
+.modal-title{font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:18px}
+
+/* ── FORM ──────────────────────────────────────────────── */
+.field{margin-bottom:14px}
+.label{font-size:10px;letter-spacing:1.5px;color:var(--gold);
+  text-transform:uppercase;display:block;margin-bottom:7px;font-weight:600}
+.inp{
+  width:100%;background:var(--s3);border:1px solid var(--border);
+  border-radius:9px;padding:11px 13px;color:var(--white);
+  font-family:var(--sans);font-size:14px;outline:none;
+  transition:border-color .18s;caret-color:var(--gold);
+  -webkit-appearance:none;
+}
+.inp:focus{border-color:var(--gold)}
+.inp::placeholder{color:var(--muted)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23D4AF37' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1}
+
+/* ── TYPE CHIPS ────────────────────────────────────────── */
+.type-chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  padding:7px 13px;border-radius:20px;font-size:12px;
+  background:var(--s3);border:1px solid var(--border2);
+  color:var(--muted);cursor:pointer;transition:.15s;user-select:none;
+}
+.chip:active{opacity:.7}
+.chip.on{background:var(--gold-dim);color:var(--gold);border-color:var(--gold)}
+
+/* ── BUTTONS ───────────────────────────────────────────── */
+.btn{
+  width:100%;padding:13px;border:none;border-radius:11px;
+  font-family:var(--sans);font-size:14px;font-weight:700;
+  cursor:pointer;transition:.15s;margin-top:6px;letter-spacing:.5px;
+}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#B8960C);color:var(--black)}
+.btn-ghost{background:var(--s3);color:var(--muted);border:1px solid var(--border2);margin-top:8px}
+
+/* ── EVENT DETAIL MODAL ────────────────────────────────── */
+.ev-detail-hero{
+  border-radius:12px;padding:18px;margin-bottom:16px;
+  position:relative;overflow:hidden;
+}
+.ev-detail-type{font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  opacity:.7;margin-bottom:8px;font-weight:600}
+.ev-detail-title{font-family:var(--serif);font-size:24px;font-weight:700;line-height:1.2}
+.ev-detail-row{display:flex;align-items:center;gap:10px;
+  padding:12px 0;border-bottom:1px solid var(--border2)}
+.ev-detail-row svg{width:17px;height:17px;stroke:var(--gold);fill:none;
+  stroke-width:1.7;stroke-linecap:round;flex-shrink:0}
+.ev-detail-info{flex:1}
+.ev-detail-lbl{font-size:10px;color:var(--muted);margin-bottom:1px}
+.ev-detail-val{font-size:13px;color:var(--dim)}
+.ev-detail-actions{display:flex;gap:10px;margin-top:16px}
+.btn-del{background:rgba(239,68,68,.12);color:#EF4444;
+  border:1px solid rgba(239,68,68,.25);flex:1}
+
+/* ── BOTTOM NAV ────────────────────────────────────────── */
+.bnav{
+  height:70px;background:rgba(10,10,10,.97);border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-around;
+  flex-shrink:0;z-index:50;
+}
+.nb{display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;cursor:pointer;padding:8px 10px;
+  color:var(--muted);transition:.15s;min-width:52px;border-radius:10px}
+.nb.on{color:var(--gold)}
+.nb svg{width:22px;height:22px;stroke:currentColor;fill:none;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.nb span{font-size:10px;font-weight:500}
+.nb-plus{
+  width:50px;height:50px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),#B8960C);
+  border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 18px var(--gold-glow);transition:.15s;margin-top:-10px;
+}
+.nb-plus:active{transform:scale(.9)}
+.nb-plus svg{width:22px;height:22px;stroke:#000;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* ── HOME SCREEN ───────────────────────────────────────── */
+.home-wrap{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px}
+.home-wrap::-webkit-scrollbar{display:none}
+.greeting{padding:18px 18px 14px}
+.g-date{font-size:10px;letter-spacing:2.5px;color:var(--gold);
+  text-transform:uppercase;margin-bottom:5px}
+.g-name{font-family:var(--serif);font-size:30px;font-weight:700;line-height:1.1}
+.g-name em{color:var(--gold);font-style:normal}
+.cit-card{
+  margin:0 16px 18px;padding:17px 18px;
+  background:linear-gradient(135deg,var(--blue) 0%,#0a1540 100%);
+  border-radius:var(--r);border:1px solid rgba(30,58,138,.5);position:relative;overflow:hidden;
+}
+.cit-card::before{content:'"';position:absolute;top:-14px;left:8px;
+  font-family:var(--serif);font-size:90px;color:rgba(255,255,255,.04);line-height:1}
+.cit-text{font-family:var(--serif);font-size:14px;font-style:italic;
+  color:var(--beige);line-height:1.6;position:relative;z-index:1}
+.cit-auth{font-size:10px;color:var(--gold);margin-top:7px;letter-spacing:.5px}
+.sec-lbl{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--muted);padding:0 18px 9px}
+.ev-row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;background:var(--s2);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  margin:0 16px 7px;cursor:pointer;transition:.14s;
+}
+.ev-row:active{border-color:var(--gold)}
+.ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ev-info{flex:1;min-width:0}
+.ev-info-t{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-info-m{font-size:11px;color:var(--muted);margin-top:1px}
+.ev-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0}
+.b-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,175,55,.25)}
+.b-red{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.2)}
+.gold-sep{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  margin:12px 18px;opacity:.3}
+
+/* ── TOAST ─────────────────────────────────────────────── */
+.toast{
+  position:absolute;top:54px;left:50%;transform:translateX(-50%) translateY(-16px);
+  background:var(--s2);border:1px solid var(--gold);border-radius:10px;
+  padding:10px 18px;font-size:12px;color:var(--gold);white-space:nowrap;
+  z-index:999;opacity:0;pointer-events:none;transition:.25s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── CONTACTS SCREEN ───────────────────────────────────── */
+.toggle-row{
+  display:flex;margin:0 16px 14px;background:var(--s3);
+  border-radius:11px;padding:3px;border:1px solid var(--border);flex-shrink:0;
+}
+.tg{flex:1;padding:8px;text-align:center;border-radius:8px;
+  font-size:12px;font-weight:600;letter-spacing:.8px;
+  color:var(--muted);cursor:pointer;transition:.2s;user-select:none}
+.tg.on{background:var(--gold);color:var(--black)}
+.srch{
+  display:flex;align-items:center;gap:9px;margin:0 16px 14px;
+  background:var(--s3);border:1px solid var(--border);
+  border-radius:11px;padding:10px 13px;flex-shrink:0;
+}
+.srch svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:2;flex-shrink:0}
+.srch input{background:none;border:none;outline:none;color:var(--white);
+  font-size:13px;flex:1;caret-color:var(--gold);font-family:var(--sans)}
+.srch input::placeholder{color:var(--muted)}
+.ct-list{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px}
+.ct-list::-webkit-scrollbar{display:none}
+.ct-row{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r-sm);margin:0 16px 7px;cursor:pointer;transition:.14s;
+}
+.ct-row:active{border-color:var(--gold)}
+.ct-av{
+  width:43px;height:43px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-size:17px;font-weight:700;
+  border:1.5px solid var(--border);
+}
+.av-blue{background:linear-gradient(135deg,var(--blue),#2d5ae0)}
+.av-gold{background:linear-gradient(135deg,#8B6914,var(--gold))}
+.ct-info{flex:1;min-width:0}
+.ct-name{font-size:13px;font-weight:500}
+.ct-note{font-size:11px;color:var(--muted);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ct-anniv{font-size:10px;color:var(--gold)}
+
+/* ── NOTES SCREEN ──────────────────────────────────────── */
+.tag-row{
+  display:flex;gap:7px;padding:0 16px 12px;
+  overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+}
+.tag-row::-webkit-scrollbar{display:none}
+.tag{
+  padding:5px 13px;border-radius:20px;font-size:11px;font-weight:600;
+  background:var(--s3);border:1px solid var(--border2);
+  color:var(--muted);white-space:nowrap;cursor:pointer;
+  flex-shrink:0;transition:.18s;user-select:none;
+}
+.tag.on{background:var(--gold-dim);color:var(--gold);border-color:var(--gold)}
+.note-list{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px}
+.note-list::-webkit-scrollbar{display:none}
+.note-card{
+  margin:0 16px 10px;background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r);padding:15px;cursor:pointer;transition:.14s;position:relative;
+}
+.note-card:active{border-color:var(--gold)}
+.nc-title{font-family:var(--serif);font-size:16px;font-weight:600;margin-bottom:5px}
+.nc-prev{font-size:12px;color:var(--muted);line-height:1.55}
+.nc-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.nc-tag{font-size:10px;color:var(--gold)}
+.nc-date{position:absolute;top:13px;right:13px;font-size:10px;color:var(--muted)}
+.nc-icon{position:absolute;bottom:13px;right:13px}
+.nc-icon svg{width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:1.5}
+
+/* ── PROJECTS SCREEN ───────────────────────────────────── */
+.proj-list{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px}
+.proj-list::-webkit-scrollbar{display:none}
+.proj-card{
+  margin:0 16px 12px;background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;cursor:pointer;transition:.14s;
+}
+.proj-card:active{border-color:var(--gold)}
+.proj-hd{
+  background:linear-gradient(135deg,rgba(30,58,138,.45),rgba(30,58,138,.15));
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:flex-start;
+}
+.proj-name{font-family:var(--serif);font-size:19px;font-weight:700}
+.proj-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.proj-st{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:600}
+.st-active{background:rgba(34,197,94,.12);color:#22C55E;border:1px solid rgba(34,197,94,.25)}
+.st-pause{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,175,55,.25)}
+.proj-body{padding:12px 16px}
+.proj-links{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.pl{
+  display:flex;align-items:center;gap:5px;background:var(--s3);
+  border:1px solid var(--border2);border-radius:7px;padding:5px 9px;
+  font-size:11px;color:var(--dim);
+}
+.pl svg{width:11px;height:11px;stroke:var(--gold);fill:none;stroke-width:2}
+.prog-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px}
+.prog-track{height:4px;background:var(--s4);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),#B8960C)}
+
+/* ── COFFRE SCREEN ─────────────────────────────────────── */
+.coffre-locked{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:30px;text-align:center;
+}
+.lock-ring{
+  width:78px;height:78px;border-radius:50%;
+  background:var(--s3);border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:22px;box-shadow:0 0 28px var(--gold-glow);
+}
+.lock-ring svg{width:34px;height:34px;stroke:var(--gold);fill:none;stroke-width:1.5;stroke-linecap:round}
+.lock-t{font-family:var(--serif);font-size:24px;font-weight:700;margin-bottom:8px}
+.lock-s{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:28px}
+.pin-dots{display:flex;gap:13px;margin-bottom:26px}
+.pd{width:13px;height:13px;border-radius:50%;border:2px solid var(--gold);transition:.18s}
+.pd.filled{background:var(--gold)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px}
+.pk{
+  aspect-ratio:1;border-radius:50%;background:var(--s3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:400;cursor:pointer;color:var(--white);
+  transition:.12s;user-select:none;
+}
+.pk:active{background:var(--gold-dim);border-color:var(--gold);transform:scale(.9)}
+.pk.del{font-size:15px;color:var(--muted)}
+.coffre-unlocked{flex:1;overflow-y:auto;scrollbar-width:none;padding-bottom:90px;display:none}
+.coffre-unlocked::-webkit-scrollbar{display:none}
+.coffre-unlocked.vis{display:block}
+.unlock-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px 8px;
+}
+.ul-status{display:flex;align-items:center;gap:8px;font-size:12px;color:#22C55E}
+.ul-status svg{width:15px;height:15px;stroke:#22C55E;fill:none;stroke-width:2}
+.shake{animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- STATUS BAR -->
+<div class="sb">
+  <span class="sb-time" id="sbTime">09:41</span>
+  <div class="sb-icons"><span>●●●</span><span style="margin:0 4px">WiFi</span><span>🔋</span></div>
+</div>
+
+<!-- ══ HOME SCREEN ══════════════════════════════════════ -->
+<div class="screen active" id="scr-home">
+  <div class="hdr">
+    <div class="hdr-title"><em>CLIVIA</em></div>
+    <div class="hdr-right">
+      <div class="ic-btn" onclick="showToast('Recherche globale…')">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="home-wrap">
+    <div class="greeting">
+      <div class="g-date" id="homeDate">Samedi 23 mai 2026</div>
+      <div class="g-name">Bonjour,<br><em>Aïcha</em> ✦</div>
+    </div>
+    <div class="cit-card">
+      <div class="cit-text" id="citText">"Écrire, c'est aussi une façon de ne pas mourir."</div>
+      <div class="cit-auth" id="citAuth">— Scholastique Mukasonga</div>
+    </div>
+    <div class="sec-lbl">Aujourd'hui</div>
+    <div class="ev-row" onclick="showToast('Anniversaire de Fatou !')">
+      <div class="ev-dot" style="background:var(--gold);box-shadow:0 0 6px var(--gold)"></div>
+      <div class="ev-info"><div class="ev-info-t">🎂 Anniversaire — Fatou Diallo</div><div class="ev-info-m">Toute la journée</div></div>
+      <div class="ev-badge b-gold">Anniv</div>
+    </div>
+    <div class="ev-row" onclick="showToast('Deadline urgente')">
+      <div class="ev-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,.6)"></div>
+      <div class="ev-info"><div class="ev-info-t">📝 Envoyer chapitre 3 — Éditeur</div><div class="ev-info-m">17h00 · Deadline écriture</div></div>
+      <div class="ev-badge b-red">J-0</div>
+    </div>
+    <div class="ev-row" onclick="showToast('Call confirmé')">
+      <div class="ev-dot" style="background:#4F8EF7;box-shadow:0 0 6px rgba(79,142,247,.6)"></div>
+      <div class="ev-info"><div class="ev-info-t">📞 Call avec Marie Lefèvre</div><div class="ev-info-m">14h30 · Rendez-vous pro</div></div>
+      <div class="ev-badge b-gold">Auj.</div>
+    </div>
+    <div class="gold-sep"></div>
+    <div class="sec-lbl">Prochaines Deadlines</div>
+    <div class="ev-row" onclick="showToast('Manuscrit final dans 5 jours')">
+      <div class="ev-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,.6)"></div>
+      <div class="ev-info"><div class="ev-info-t">Manuscrit final — Ourlet de Sang</div><div class="ev-info-m">28 mai · Gallimard</div></div>
+      <div class="ev-badge b-red">J-5</div>
+    </div>
+    <div class="ev-row" onclick="showToast('Chronique dans 18 jours')">
+      <div class="ev-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,.6)"></div>
+      <div class="ev-info"><div class="ev-info-t">Chronique mensuelle — Revue N</div><div class="ev-info-m">10 juin · 1200 mots</div></div>
+      <div class="ev-badge b-gold">J-18</div>
+    </div>
+    <div class="ev-row" onclick="showToast('Préface dans 34 jours')">
+      <div class="ev-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,.6)"></div>
+      <div class="ev-info"><div class="ev-info-t">Préface — Anthologie Afrofem</div><div class="ev-info-m">26 juin · 800 mots</div></div>
+      <div class="ev-badge b-gold">J-34</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AGENDA SCREEN ════════════════════════════════════ -->
+<div class="screen" id="scr-cal">
+  <div class="hdr">
+    <div class="hdr-title">Agenda <em>✦</em></div>
+    <div class="hdr-right">
+      <div class="ic-btn" id="btnPrevMonth" onclick="changeMonth(-1)">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </div>
+      <div class="ic-btn" id="btnNextMonth" onclick="changeMonth(1)">
+        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="month-strip" id="monthStrip"></div>
+  <div class="cal-wrap">
+    <div class="wd-row">
+      <div class="wd">D</div><div class="wd">L</div><div class="wd">M</div>
+      <div class="wd">M</div><div class="wd">J</div><div class="wd">V</div><div class="wd">S</div>
+    </div>
+    <div class="day-grid" id="dayGrid"></div>
+  </div>
+  <div class="sel-bar">
+    <div class="sel-label" id="selLabel">Aujourd'hui</div>
+    <div class="add-ev-btn" onclick="openModal('modal-event')">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Ajouter
+    </div>
+  </div>
+  <div class="cal-body">
+    <div class="agenda-list" id="agendaList"></div>
+  </div>
+</div>
+
+<!-- ══ CONTACTS SCREEN ══════════════════════════════════ -->
+<div class="screen" id="scr-contacts">
+  <div class="hdr">
+    <div class="hdr-title">Contacts <em>✦</em></div>
+    <div class="hdr-right">
+      <div class="ic-btn" onclick="openModal('modal-contact')">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="toggle-row">
+    <div class="tg on" id="tg-perso" onclick="switchCat('PERSO')">PERSO</div>
+    <div class="tg" id="tg-pro" onclick="switchCat('PRO')">PRO</div>
+  </div>
+  <div class="srch">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Rechercher…" id="ctSearch" oninput="renderContacts()">
+  </div>
+  <div class="ct-list" id="ctList"></div>
+</div>
+
+<!-- ══ NOTES SCREEN ═════════════════════════════════════ -->
+<div class="screen" id="scr-notes">
+  <div class="hdr">
+    <div class="hdr-title">Le <em>Coffre</em></div>
+    <div class="hdr-right">
+      <div class="ic-btn" onclick="openModal('modal-note')">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="srch" style="margin:0 16px 12px">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Rechercher dans toutes les notes…" id="noteSearch" oninput="renderNotes()">
+  </div>
+  <div class="tag-row" id="tagRow">
+    <div class="tag on" onclick="filterTag(this,'')">Tout</div>
+    <div class="tag" onclick="filterTag(this,'OurletDeSang')">#OurletDeSang</div>
+    <div class="tag" onclick="filterTag(this,'Idées')">#Idées</div>
+    <div class="tag" onclick="filterTag(this,'Personnages')">#Personnages</div>
+    <div class="tag" onclick="filterTag(this,'Dialogues')">#Dialogues</div>
+  </div>
+  <div class="note-list" id="noteList"></div>
+</div>
+
+<!-- ══ PROJETS SCREEN ═══════════════════════════════════ -->
+<div class="screen" id="scr-projets">
+  <div class="hdr">
+    <div class="hdr-title">Projets <em>✦</em></div>
+    <div class="hdr-right">
+      <div class="ic-btn" onclick="openModal('modal-projet')">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="proj-list" id="projList"></div>
+</div>
+
+<!-- ══ COFFRE SECRET SCREEN ═════════════════════════════ -->
+<div class="screen" id="scr-coffre">
+  <div class="hdr">
+    <div class="hdr-title">Coffre <em>Secret</em></div>
+  </div>
+  <div class="coffre-locked" id="coffre-locked">
+    <div class="lock-ring">
+      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="lock-t">Accès Sécurisé</div>
+    <div class="lock-s">Entrez votre code PIN<br>pour accéder au coffre.</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pd" id="pd0"></div><div class="pd" id="pd1"></div>
+      <div class="pd" id="pd2"></div><div class="pd" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pk" onclick="pk('1')">1</div><div class="pk" onclick="pk('2')">2</div><div class="pk" onclick="pk('3')">3</div>
+      <div class="pk" onclick="pk('4')">4</div><div class="pk" onclick="pk('5')">5</div><div class="pk" onclick="pk('6')">6</div>
+      <div class="pk" onclick="pk('7')">7</div><div class="pk" onclick="pk('8')">8</div><div class="pk" onclick="pk('9')">9</div>
+      <div class="pk" style="visibility:hidden"></div>
+      <div class="pk" onclick="pk('0')">0</div>
+      <div class="pk del" onclick="pkDel()">⌫</div>
+    </div>
+  </div>
+  <div class="coffre-unlocked" id="coffre-unlocked">
+    <div class="unlock-bar">
+      <div class="ul-status">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Déverrouillé
+      </div>
+      <div class="ic-btn" onclick="lockCoffre()">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+    </div>
+    <div style="padding:0 16px">
+      <div class="note-card" onclick="showToast('Journal ouvert')">
+        <div class="nc-date">Privé</div>
+        <div class="nc-title">Journal — Semaine 18</div>
+        <div class="nc-prev">Ce que je n'oserai jamais dire dans un interview…</div>
+      </div>
+      <div class="note-card" onclick="showToast('Mots de passe')">
+        <div class="nc-date">Sécurisé</div>
+        <div class="nc-title">🔑 Mots de passe</div>
+        <div class="nc-prev">Accès comptes éditeurs, plateformes, réseaux…</div>
+      </div>
+      <div class="note-card" onclick="showToast('Lettre ouverte')">
+        <div class="nc-date">Brouillon</div>
+        <div class="nc-title">Lettre à ma mère</div>
+        <div class="nc-prev">Non envoyée. Non envoyable. Peut-être jamais.</div>
+      </div>
+      <button class="btn btn-gold" style="margin-top:8px" onclick="openModal('modal-note')">+ Nouvelle note secrète</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BOTTOM NAV ════════════════════════════════════════ -->
+<div class="bnav">
+  <button class="nb on" id="nb-home" onclick="nav('home')">
+    <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    <span>Accueil</span>
+  </button>
+  <button class="nb" id="nb-cal" onclick="nav('cal')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <span>Agenda</span>
+  </button>
+  <button class="nb-plus" onclick="quickAdd()">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="nb" id="nb-contacts" onclick="nav('contacts')">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span>Contacts</span>
+  </button>
+  <button class="nb" id="nb-notes" onclick="nav('notes')">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <span>Notes</span>
+  </button>
+  <button class="nb" id="nb-projets" onclick="nav('projets')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    <span>Projets</span>
+  </button>
+  <button class="nb" id="nb-coffre" onclick="nav('coffre')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <span>Coffre</span>
+  </button>
+</div>
+
+<!-- ══ MODAL : NOUVEL ÉVÉNEMENT ════════════════════════ -->
+<div class="overlay" id="modal-event" onclick="closeOverlay(event,'modal-event')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="modal-title">Nouvel événement</div>
+    <div class="field">
+      <label class="label">Titre</label>
+      <input class="inp" id="ev-title" type="text" placeholder="Nom de l'événement…">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label class="label">Date</label>
+        <input class="inp" id="ev-date" type="date">
+      </div>
+      <div class="field">
+        <label class="label">Heure</label>
+        <input class="inp" id="ev-time" type="time" value="09:00">
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Type</label>
+      <div class="type-chips" id="ev-types">
+        <div class="chip on" onclick="selectChip(this,'ev-types')">Deadline</div>
+        <div class="chip" onclick="selectChip(this,'ev-types')">RDV Pro</div>
+        <div class="chip" onclick="selectChip(this,'ev-types')">Perso</div>
+        <div class="chip" onclick="selectChip(this,'ev-types')">Anniversaire</div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Rappel</label>
+      <select class="inp" id="ev-reminder">
+        <option>1 heure avant</option>
+        <option>3 heures avant</option>
+        <option selected>1 jour avant</option>
+        <option>2 jours avant à 9h</option>
+        <option>1 semaine avant</option>
+        <option>1 mois avant</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label">Répétition</label>
+      <select class="inp" id="ev-repeat">
+        <option>Jamais</option>
+        <option>Chaque année</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label">Projet lié</label>
+      <select class="inp" id="ev-project">
+        <option value="">— Aucun —</option>
+        <option>Ourlet de Sang</option>
+        <option>Chroniques Afrofem</option>
+        <option>Préface Anthologie</option>
+      </select>
+    </div>
+    <button class="btn btn-gold" onclick="saveEvent()">Créer l'événement</button>
+    <button class="btn btn-ghost" onclick="closeModal('modal-event')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ MODAL : NOUVEAU CONTACT ══════════════════════════ -->
+<div class="overlay" id="modal-contact" onclick="closeOverlay(event,'modal-contact')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="modal-title">Nouveau contact</div>
+    <div class="field">
+      <label class="label">Catégorie</label>
+      <div class="type-chips" id="ct-cats">
+        <div class="chip on" onclick="selectChip(this,'ct-cats')">PERSO</div>
+        <div class="chip" onclick="selectChip(this,'ct-cats')">PRO</div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Nom complet</label>
+      <input class="inp" id="ct-name" type="text" placeholder="Prénom Nom…">
+    </div>
+    <div class="field">
+      <label class="label">Numéro</label>
+      <input class="inp" id="ct-phone" type="tel" placeholder="+237 6XX XXX XXX">
+    </div>
+    <div class="field">
+      <label class="label">Date d'anniversaire</label>
+      <input class="inp" id="ct-anniv" type="date">
+    </div>
+    <div class="field">
+      <label class="label">Note</label>
+      <input class="inp" id="ct-note" type="text" placeholder="Ex : éditeur Gallimard, tata toxique…">
+    </div>
+    <div class="field">
+      <label class="label">Dernier cadeau offert</label>
+      <input class="inp" id="ct-gift" type="text" placeholder="Ex : livre 'Americanah', Jan 2026">
+    </div>
+    <button class="btn btn-gold" onclick="saveContact()">Ajouter le contact</button>
+    <button class="btn btn-ghost" onclick="closeModal('modal-contact')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ MODAL : NOUVELLE NOTE ════════════════════════════ -->
+<div class="overlay" id="modal-note" onclick="closeOverlay(event,'modal-note')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="modal-title">Nouvelle note</div>
+    <div class="field">
+      <label class="label">Type</label>
+      <div class="type-chips" id="note-types">
+        <div class="chip on" onclick="selectChip(this,'note-types')">📝 Texte</div>
+        <div class="chip" onclick="selectChip(this,'note-types')">📸 Photo</div>
+        <div class="chip" onclick="selectChip(this,'note-types')">🎙 Audio</div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Titre</label>
+      <input class="inp" id="note-title" type="text" placeholder="Titre de la note…">
+    </div>
+    <div class="field">
+      <label class="label">Contenu</label>
+      <textarea class="inp" id="note-body" style="min-height:90px;resize:none" placeholder="Écris ici…"></textarea>
+    </div>
+    <div class="field">
+      <label class="label">Tags</label>
+      <input class="inp" id="note-tags" type="text" placeholder="#OurletDeSang #Idées…">
+    </div>
+    <div class="field">
+      <label class="label">Projet lié</label>
+      <select class="inp" id="note-project">
+        <option value="">— Aucun —</option>
+        <option>Ourlet de Sang</option>
+        <option>Chroniques Afrofem</option>
+        <option>Préface Anthologie</option>
+      </select>
+    </div>
+    <button class="btn btn-gold" onclick="saveNote()">Enregistrer</button>
+    <button class="btn btn-ghost" onclick="closeModal('modal-note')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ MODAL : NOUVEAU PROJET ═══════════════════════════ -->
+<div class="overlay" id="modal-projet" onclick="closeOverlay(event,'modal-projet')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="modal-title">Nouveau projet</div>
+    <div class="field">
+      <label class="label">Nom du projet</label>
+      <input class="inp" id="pr-name" type="text" placeholder="Ex : Ourlet de Sang">
+    </div>
+    <div class="field">
+      <label class="label">Type</label>
+      <div class="type-chips" id="pr-types">
+        <div class="chip on" onclick="selectChip(this,'pr-types')">Roman</div>
+        <div class="chip" onclick="selectChip(this,'pr-types')">Essai</div>
+        <div class="chip" onclick="selectChip(this,'pr-types')">Nouvelle</div>
+        <div class="chip" onclick="selectChip(this,'pr-types')">Autre</div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Éditeur / Partenaire</label>
+      <input class="inp" id="pr-editor" type="text" placeholder="Ex : Gallimard">
+    </div>
+    <div class="field">
+      <label class="label">Deadline finale</label>
+      <input class="inp" id="pr-deadline" type="date">
+    </div>
+    <button class="btn btn-gold" onclick="saveProjet()">Créer le projet</button>
+    <button class="btn btn-ghost" onclick="closeModal('modal-projet')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ MODAL : DÉTAIL ÉVÉNEMENT ════════════════════════ -->
+<div class="overlay" id="modal-ev-detail" onclick="closeOverlay(event,'modal-ev-detail')">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div id="ev-detail-content"></div>
+    <div class="ev-detail-actions">
+      <button class="btn btn-ghost" style="flex:1;margin:0" onclick="closeModal('modal-ev-detail')">Fermer</button>
+      <button class="btn btn-del" style="margin:0" onclick="deleteCurrentEvent()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  DATA (persisted in localStorage)
+// ══════════════════════════════════════════════════════
+const DB = {
+  get(k){ try{ return JSON.parse(localStorage.getItem('clivia_'+k))||null }catch(e){return null} },
+  set(k,v){ try{ localStorage.setItem('clivia_'+k,JSON.stringify(v)) }catch(e){} }
+};
+
+// Default data
+let events = DB.get('events') || [
+  {id:1,title:"🎂 Anniversaire — Fatou Diallo",date:"2026-05-23",time:"",type:"Anniversaire",reminder:"1 mois avant",repeat:"Chaque année",project:""},
+  {id:2,title:"Envoyer chapitre 3 — Éditeur",date:"2026-05-23",time:"17:00",type:"Deadline",reminder:"2 jours avant à 9h",repeat:"Jamais",project:"Ourlet de Sang"},
+  {id:3,title:"Call avec Marie Lefèvre",date:"2026-05-23",time:"14:30",type:"RDV Pro",reminder:"1 heure avant",repeat:"Jamais",project:""},
+  {id:4,title:"Manuscrit final — Ourlet de Sang",date:"2026-05-28",time:"",type:"Deadline",reminder:"1 semaine avant",repeat:"Jamais",project:"Ourlet de Sang"},
+  {id:5,title:"Chronique mensuelle — Revue N",date:"2026-06-10",time:"",type:"Deadline",reminder:"1 semaine avant",repeat:"Jamais",project:""},
+  {id:6,title:"Préface Anthologie Afrofem",date:"2026-06-26",time:"",type:"Deadline",reminder:"1 semaine avant",repeat:"Jamais",project:""},
+  {id:7,title:"Anniversaire — Aminata",date:"2026-06-14",time:"",type:"Anniversaire",reminder:"1 mois avant",repeat:"Chaque année",project:""},
+  {id:8,title:"RDV Gallimard",date:"2026-06-03",time:"10:00",type:"RDV Pro",reminder:"1 jour avant",repeat:"Jamais",project:"Ourlet de Sang"},
+];
+
+let contacts = DB.get('contacts') || [
+  {id:1,cat:'PERSO',name:'Fatou Diallo',phone:'+237 699 123 456',anniv:'2026-05-08',note:'Tata adorable, cuisine incroyable',gift:'Livre "Tes rêves sont vivants"',init:'F',col:'gold'},
+  {id:2,cat:'PERSO',name:'Aminata Koné',phone:'+225 07 12 345 678',anniv:'2026-06-14',note:'Cousine · Abidjan',gift:'Bijoux argent · Noël 2025',init:'A',col:'blue'},
+  {id:3,cat:'PERSO',name:'Rokhaya Mbaye',phone:'+221 77 456 7890',anniv:'2026-03-23',note:'Meilleure amie de fac',gift:'Abonnement Spotify',init:'R',col:'blue'},
+  {id:4,cat:'PRO',name:'Éditeur X (Gallimard)',phone:'+33 1 45 67 89 00',anniv:'',note:'Éditeur principal · Ourlet de Sang',gift:'—',init:'E',col:'gold'},
+  {id:5,cat:'PRO',name:'Marie Lefèvre',phone:'+33 6 78 90 12 34',anniv:'',note:'Attachée de presse',gift:'—',init:'M',col:'blue'},
+  {id:6,cat:'PRO',name:'Dir. Rédaction — Revue N',phone:'+237 222 34 56 78',anniv:'',note:'Chroniques mensuelles',gift:'—',init:'D',col:'blue'},
+];
+
+let notes = DB.get('notes') || [
+  {id:1,type:'Texte',title:'Zara se coupe les cheveux',body:'Scène de rupture symbolique. Elle entre dans la salle de bain à 3h du matin, les ciseaux froids dans la paume…',tags:['OurletDeSang','ScèneDeHonte'],project:'Ourlet de Sang',date:'Hier'},
+  {id:2,type:'Audio',title:'Voix off — chapitre 5',body:'Mémo vocal — 2 min 34 sec. "Je voulais qu\'on entende le silence avant le cri…"',tags:['OurletDeSang','Dialogues'],project:'Ourlet de Sang',date:'3 mai'},
+  {id:3,type:'Photo',title:'Inspiration — Tissu Ndop',body:'Photo prise au marché Mokolo. La texture correspond exactement à ce que je décris dans l\'incipit.',tags:['Idées'],project:'',date:'28 avr'},
+  {id:4,type:'Texte',title:'Brainstorm — Personnages secondaires',body:'Listing des 8 femmes du quartier. Chacune porte une partie de la mémoire collective de Zara.',tags:['OurletDeSang','Personnages'],project:'Ourlet de Sang',date:'15 avr'},
+];
+
+let projets = DB.get('projets') || [
+  {id:1,name:'Ourlet de Sang',type:'Roman',editor:'Gallimard',deadline:'2026-05-28',status:'active',progress:67},
+  {id:2,name:'Chroniques Afrofem',type:'Essai',editor:'Revue Noire',deadline:'2026-06-10',status:'pause',progress:35},
+  {id:3,name:'Préface Anthologie',type:'Texte court',editor:'Collectif',deadline:'2026-06-26',status:'active',progress:10},
+];
+
+function saveDB(){
+  DB.set('events',events);
+  DB.set('contacts',contacts);
+  DB.set('notes',notes);
+  DB.set('projets',projets);
+}
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let curScreen = 'home';
+let curMonth  = 4;   // 0-based, May = 4
+let curYear   = 2026;
+let selDay    = 23;  // today
+let contactCat = 'PERSO';
+let activeTag  = '';
+let currentEventId = null;
+let pinEntry   = '';
+const PIN_CORRECT = '1234';
+
+const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+const EVENT_COLORS = {
+  'Deadline':'#EF4444','Anniversaire':'#D4AF37','RDV Pro':'#4F8EF7','Perso':'#22C55E'
+};
+
+const CITATIONS = [
+  {t:'"Écrire, c\'est aussi une façon de ne pas mourir."',a:'— Scholastique Mukasonga'},
+  {t:'"Je suis un roman que personne n\'a encore écrit."',a:'— Léonora Miano'},
+  {t:'"Les mots sont des actes."',a:'— Simone de Beauvoir'},
+  {t:'"L\'écriture est une danse que tu fais seule dans le noir."',a:'— Toni Morrison'},
+  {t:'"Tout ce que je sais du monde, je l\'ai appris dans les livres."',a:'— Jean-Paul Sartre'},
+];
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Clock
+  updateClock(); setInterval(updateClock, 1000);
+  // Date
+  const d = new Date();
+  const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const mos  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  document.getElementById('homeDate').textContent =
+    `${days[d.getDay()]} ${d.getDate()} ${mos[d.getMonth()]} ${d.getFullYear()}`;
+  // Random citation
+  const c = CITATIONS[Math.floor(Math.random()*CITATIONS.length)];
+  document.getElementById('citText').textContent = c.t;
+  document.getElementById('citAuth').textContent = c.a;
+  // Calendar
+  buildMonthStrip();
+  buildCalendar();
+  renderAgenda();
+  // Contacts
+  renderContacts();
+  // Notes
+  renderNotes();
+  // Projets
+  renderProjets();
+});
+
+function updateClock(){
+  const n = new Date();
+  document.getElementById('sbTime').textContent =
+    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+}
+
+// ══════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════
+function nav(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('scr-'+id).classList.add('active');
+  const nb = document.getElementById('nb-'+id);
+  if(nb) nb.classList.add('on');
+  curScreen = id;
+  if(id==='coffre') lockCoffre();
+}
+
+function quickAdd(){
+  const map = {home:'modal-event',cal:'modal-event',contacts:'modal-contact',
+               notes:'modal-note',projets:'modal-projet',coffre:'modal-note'};
+  openModal(map[curScreen]||'modal-event');
+}
+
+// ══════════════════════════════════════════════════════
+//  CALENDAR
+// ══════════════════════════════════════════════════════
+function buildMonthStrip(){
+  const strip = document.getElementById('monthStrip');
+  strip.innerHTML = '';
+  MONTHS_SHORT.forEach((m,i)=>{
+    const el = document.createElement('div');
+    el.className = 'mc'+(i===curMonth?' on':'');
+    el.textContent = m;
+    el.onclick = ()=>{ curMonth=i; buildMonthStrip(); buildCalendar(); renderAgenda(); };
+    strip.appendChild(el);
+  });
+  // Scroll active month into view
+  setTimeout(()=>{
+    const on = strip.querySelector('.on');
+    if(on) on.scrollIntoView({inline:'center',behavior:'smooth'});
+  },50);
+}
+
+function changeMonth(dir){
+  curMonth += dir;
+  if(curMonth<0){ curMonth=11; curYear--; }
+  if(curMonth>11){ curMonth=0; curYear++; }
+  buildMonthStrip();
+  buildCalendar();
+  renderAgenda();
+}
+
+function daysWithEvents(){
+  const set = new Set();
+  events.forEach(ev=>{
+    const d = new Date(ev.date);
+    if(d.getFullYear()===curYear && d.getMonth()===curMonth)
+      set.add(d.getDate());
+  });
+  return set;
+}
+
+function buildCalendar(){
+  const grid = document.getElementById('dayGrid');
+  grid.innerHTML = '';
+  const today = new Date();
+  const firstDay = new Date(curYear, curMonth, 1).getDay();
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const prevDays = new Date(curYear, curMonth, 0).getDate();
+  const evDays = daysWithEvents();
+
+  // Prev month days
+  for(let i=firstDay-1;i>=0;i--){
+    const el = document.createElement('div');
+    el.className='day other';
+    el.textContent=prevDays-i;
+    grid.appendChild(el);
+  }
+  // Current month
+  for(let d=1;d<=daysInMonth;d++){
+    const el = document.createElement('div');
+    let cls = 'day';
+    const isToday = (d===today.getDate()&&curMonth===today.getMonth()&&curYear===today.getFullYear());
+    const isSel   = (d===selDay&&curMonth===today.getMonth()&&curYear===today.getFullYear());
+    if(isToday) cls+=' today';
+    if(isSel&&!isToday) cls+=' sel';
+    if(evDays.has(d)) cls+=' has-ev';
+    el.className=cls;
+    el.textContent=d;
+    const day=d;
+    el.onclick=()=>{ selDay=day; buildCalendar(); renderAgenda(); updateSelLabel(); };
+    grid.appendChild(el);
+  }
+  // Next month
+  const total = firstDay+daysInMonth;
+  const rem = total%7===0?0:7-(total%7);
+  for(let i=1;i<=rem;i++){
+    const el=document.createElement('div');
+    el.className='day other';
+    el.textContent=i;
+    grid.appendChild(el);
+  }
+  updateSelLabel();
+}
+
+function updateSelLabel(){
+  const label = document.getElementById('selLabel');
+  const today = new Date();
+  if(selDay===today.getDate()&&curMonth===today.getMonth()&&curYear===today.getFullYear()){
+    label.textContent = "Aujourd'hui — "+selDay+" "+MONTHS_SHORT[curMonth];
+  } else {
+    label.textContent = selDay+" "+MONTHS[curMonth]+" "+curYear;
+  }
+}
+
+function renderAgenda(){
+  const list = document.getElementById('agendaList');
+  list.innerHTML = '';
+  const dateStr = `${curYear}-${String(curMonth+1).padStart(2,'0')}-${String(selDay).padStart(2,'0')}`;
+  const dayEvs  = events.filter(e=>e.date===dateStr).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+
+  if(!dayEvs.length){
+    list.innerHTML=`<div class="empty">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <p>Aucun événement ce jour.<br>Appuie sur <strong style="color:var(--gold)">Ajouter</strong> pour en créer un.</p>
+    </div>`;
+    return;
+  }
+
+  dayEvs.forEach(ev=>{
+    const color = EVENT_COLORS[ev.type]||'#D4AF37';
+    const item = document.createElement('div');
+    item.className='agenda-item';
+    const endTime = ev.time ? calcEnd(ev.time,60) : '';
+    item.innerHTML=`
+      <div class="ag-accent" style="background:${color}"></div>
+      <div class="ag-time">
+        <div class="ag-time-start">${ev.time||'Tjrs'}</div>
+        ${ev.time?`<div class="ag-time-end">${endTime}</div>`:''}
+      </div>
+      <div class="ag-content">
+        <div class="ag-title">${ev.title}</div>
+        <div class="ag-sub">${ev.type}${ev.project?' · '+ev.project:''}</div>
+        <span class="ag-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${ev.type}</span>
+      </div>
+      <div class="ag-arrow">›</div>`;
+    item.onclick=()=>openEventDetail(ev.id);
+    list.appendChild(item);
+  });
+}
+
+function calcEnd(time, mins){
+  const [h,m]=time.split(':').map(Number);
+  const total=(h*60+m+mins)%1440;
+  return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}
+
+// ══════════════════════════════════════════════════════
+//  EVENT CRUD
+// ══════════════════════════════════════════════════════
+function saveEvent(){
+  const title=document.getElementById('ev-title').value.trim();
+  if(!title){showToast('⚠ Titre requis');return;}
+  const ev={
+    id:Date.now(),
+    title,
+    date:document.getElementById('ev-date').value||new Date().toISOString().slice(0,10),
+    time:document.getElementById('ev-time').value,
+    type:document.querySelector('#ev-types .chip.on')?.textContent||'Deadline',
+    reminder:document.getElementById('ev-reminder').value,
+    repeat:document.getElementById('ev-repeat').value,
+    project:document.getElementById('ev-project').value,
+  };
+  events.push(ev); saveDB();
+  buildCalendar(); renderAgenda();
+  closeModal('modal-event');
+  document.getElementById('ev-title').value='';
+  showToast('Événement créé ✦');
+}
+
+function openEventDetail(id){
+  const ev = events.find(e=>e.id===id);
+  if(!ev) return;
+  currentEventId=id;
+  const color=EVENT_COLORS[ev.type]||'#D4AF37';
+  const d=new Date(ev.date);
+  const days=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const mos=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  const dateLabel=`${days[d.getDay()]} ${d.getDate()} ${mos[d.getMonth()]} ${d.getFullYear()}`;
+  document.getElementById('ev-detail-content').innerHTML=`
+    <div class="ev-detail-hero" style="background:${color}18;border:1px solid ${color}33">
+      <div class="ev-detail-type" style="color:${color}">${ev.type}</div>
+      <div class="ev-detail-title">${ev.title}</div>
+    </div>
+    <div class="ev-detail-row">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <div class="ev-detail-info"><div class="ev-detail-lbl">Date</div><div class="ev-detail-val">${dateLabel}</div></div>
+    </div>
+    ${ev.time?`<div class="ev-detail-row">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div class="ev-detail-info"><div class="ev-detail-lbl">Heure</div><div class="ev-detail-val">${ev.time}</div></div>
+    </div>`:''}
+    <div class="ev-detail-row">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div class="ev-detail-info"><div class="ev-detail-lbl">Rappel</div><div class="ev-detail-val">${ev.reminder}</div></div>
+    </div>
+    <div class="ev-detail-row">
+      <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      <div class="ev-detail-info"><div class="ev-detail-lbl">Répétition</div><div class="ev-detail-val">${ev.repeat}</div></div>
+    </div>
+    ${ev.project?`<div class="ev-detail-row">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <div class="ev-detail-info"><div class="ev-detail-lbl">Projet lié</div><div class="ev-detail-val">${ev.project}</div></div>
+    </div>`:''}`;
+  openModal('modal-ev-detail');
+}
+
+function deleteCurrentEvent(){
+  if(!currentEventId) return;
+  events = events.filter(e=>e.id!==currentEventId);
+  saveDB(); buildCalendar(); renderAgenda();
+  closeModal('modal-ev-detail');
+  showToast('Événement supprimé');
+}
+
+// ══════════════════════════════════════════════════════
+//  CONTACTS
+// ══════════════════════════════════════════════════════
+function switchCat(cat){
+  contactCat=cat;
+  document.getElementById('tg-perso').classList.toggle('on',cat==='PERSO');
+  document.getElementById('tg-pro').classList.toggle('on',cat==='PRO');
+  renderContacts();
+}
+
+function renderContacts(){
+  const q=(document.getElementById('ctSearch')?.value||'').toLowerCase();
+  const list=document.getElementById('ctList');
+  list.innerHTML='';
+  const filtered=contacts.filter(c=>c.cat===contactCat&&
+    (c.name.toLowerCase().includes(q)||c.note.toLowerCase().includes(q)));
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Aucun contact trouvé.</p></div>`;
+    return;
+  }
+  filtered.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='ct-row';
+    el.innerHTML=`
+      <div class="ct-av av-${c.col}">${c.init}</div>
+      <div class="ct-info">
+        <div class="ct-name">${c.name}</div>
+        <div class="ct-note">${c.note}</div>
+      </div>
+      ${c.anniv?`<div class="ct-anniv">🎂 ${fmtAnniv(c.anniv)}</div>`:''}`;
+    el.onclick=()=>showToast(c.name+' · '+c.phone);
+    list.appendChild(el);
+  });
+  const spacer=document.createElement('div');
+  spacer.style.height='20px';
+  list.appendChild(spacer);
+}
+
+function fmtAnniv(s){
+  if(!s) return '';
+  const d=new Date(s);
+  const mos=['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+  return d.getDate()+' '+mos[d.getMonth()];
+}
+
+function saveContact(){
+  const name=document.getElementById('ct-name').value.trim();
+  if(!name){showToast('⚠ Nom requis');return;}
+  const cat=document.querySelector('#ct-cats .chip.on')?.textContent||'PERSO';
+  contacts.push({
+    id:Date.now(),cat,name,
+    phone:document.getElementById('ct-phone').value,
+    anniv:document.getElementById('ct-anniv').value,
+    note:document.getElementById('ct-note').value,
+    gift:document.getElementById('ct-gift').value,
+    init:name[0].toUpperCase(),col:cat==='PRO'?'blue':'gold',
+  });
+  saveDB(); renderContacts();
+  closeModal('modal-contact');
+  document.getElementById('ct-name').value='';
+  showToast('Contact ajouté ✦');
+}
+
+// ══════════════════════════════════════════════════════
+//  NOTES
+// ══════════════════════════════════════════════════════
+function filterTag(el,tag){
+  document.querySelectorAll('#tagRow .tag').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  activeTag=tag;
+  renderNotes();
+}
+
+function renderNotes(){
+  const q=(document.getElementById('noteSearch')?.value||'').toLowerCase();
+  const list=document.getElementById('noteList');
+  list.innerHTML='';
+  let filtered=notes;
+  if(activeTag) filtered=filtered.filter(n=>n.tags.includes(activeTag));
+  if(q) filtered=filtered.filter(n=>n.title.toLowerCase().includes(q)||n.body.toLowerCase().includes(q));
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Aucune note trouvée.</p></div>`;
+    return;
+  }
+  const icons={Texte:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    Photo:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+    Audio:'<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>'};
+  filtered.forEach(n=>{
+    const el=document.createElement('div');
+    el.className='note-card';
+    el.innerHTML=`
+      <div class="nc-date">${n.date}</div>
+      <div class="nc-title">${n.title}</div>
+      <div class="nc-prev">${n.body.slice(0,100)}${n.body.length>100?'…':''}</div>
+      <div class="nc-tags">${n.tags.map(t=>`<span class="nc-tag">#${t}</span>`).join('')}</div>
+      <div class="nc-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">${icons[n.type]||icons.Texte}</svg></div>`;
+    el.onclick=()=>showToast('"'+n.title+'" ouvert');
+    list.appendChild(el);
+  });
+  const spacer=document.createElement('div');
+  spacer.style.height='20px';
+  list.appendChild(spacer);
+}
+
+function saveNote(){
+  const title=document.getElementById('note-title').value.trim();
+  if(!title){showToast('⚠ Titre requis');return;}
+  const tagsRaw=document.getElementById('note-tags').value;
+  const tags=tagsRaw.match(/#(\w+)/g)?.map(t=>t.slice(1))||[];
+  const now=new Date();
+  notes.unshift({
+    id:Date.now(),
+    type:document.querySelector('#note-types .chip.on')?.textContent.replace(/[^a-zA-Z]/g,'')||'Texte',
+    title,
+    body:document.getElementById('note-body').value,
+    tags,
+    project:document.getElementById('note-project').value,
+    date:now.getDate()+" "+['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()],
+  });
+  saveDB(); renderNotes();
+  closeModal('modal-note');
+  document.getElementById('note-title').value='';
+  document.getElementById('note-body').value='';
+  document.getElementById('note-tags').value='';
+  showToast('Note créée ✦');
+}
+
+// ══════════════════════════════════════════════════════
+//  PROJETS
+// ══════════════════════════════════════════════════════
+function renderProjets(){
+  const list=document.getElementById('projList');
+  list.innerHTML='';
+  projets.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='proj-card';
+    const linkedEvs=events.filter(e=>e.project===p.name).length;
+    const linkedNotes=notes.filter(n=>n.project===p.name).length;
+    el.innerHTML=`
+      <div class="proj-hd">
+        <div>
+          <div class="proj-name">${p.name}</div>
+          <div class="proj-sub">${p.type} · ${p.editor}</div>
+        </div>
+        <div class="proj-st ${p.status==='active'?'st-active':'st-pause'}">${p.status==='active'?'En cours':'En pause'}</div>
+      </div>
+      <div class="proj-body">
+        <div class="proj-links">
+          ${linkedEvs?`<div class="pl"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${linkedEvs} deadline${linkedEvs>1?'s':''}</div>`:''}
+          ${linkedNotes?`<div class="pl"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>${linkedNotes} note${linkedNotes>1?'s':''}</div>`:''}
+        </div>
+        <div class="prog-lbl"><span>Avancement</span><span style="color:var(--gold)">${p.progress}%</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:${p.progress}%"></div></div>
+      </div>`;
+    el.onclick=()=>showToast('Projet "'+p.name+'" ouvert');
+    list.appendChild(el);
+  });
+  const spacer=document.createElement('div');
+  spacer.style.height='20px';
+  list.appendChild(spacer);
+}
+
+function saveProjet(){
+  const name=document.getElementById('pr-name').value.trim();
+  if(!name){showToast('⚠ Nom requis');return;}
+  projets.push({
+    id:Date.now(),name,
+    type:document.querySelector('#pr-types .chip.on')?.textContent||'Roman',
+    editor:document.getElementById('pr-editor').value,
+    deadline:document.getElementById('pr-deadline').value,
+    status:'active',progress:0,
+  });
+  saveDB(); renderProjets();
+  closeModal('modal-projet');
+  document.getElementById('pr-name').value='';
+  showToast('Projet créé ✦');
+}
+
+// ══════════════════════════════════════════════════════
+//  COFFRE SECRET
+// ══════════════════════════════════════════════════════
+function pk(digit){
+  if(pinEntry.length>=4) return;
+  pinEntry+=digit;
+  updatePinDots();
+  if(pinEntry.length===4) setTimeout(checkPin,200);
+}
+function pkDel(){
+  pinEntry=pinEntry.slice(0,-1);
+  updatePinDots();
+}
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('pd'+i).classList.toggle('filled',i<pinEntry.length);
+  }
+}
+function checkPin(){
+  if(pinEntry===PIN_CORRECT){
+    document.getElementById('coffre-locked').style.display='none';
+    document.getElementById('coffre-unlocked').classList.add('vis');
+    showToast('Accès autorisé ✦');
+  } else {
+    const dots=document.getElementById('pinDots');
+    dots.classList.add('shake');
+    setTimeout(()=>dots.classList.remove('shake'),450);
+    pinEntry=''; updatePinDots();
+    showToast('Code incorrect');
+  }
+}
+function lockCoffre(){
+  pinEntry=''; updatePinDots();
+  document.getElementById('coffre-locked').style.display='flex';
+  document.getElementById('coffre-unlocked').classList.remove('vis');
+}
+
+// ══════════════════════════════════════════════════════
+//  MODALS
+// ══════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function closeOverlay(e,id){ if(e.target.id===id) closeModal(id); }
+
+function selectChip(el,groupId){
+  document.querySelectorAll('#'+groupId+' .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// ══════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>
